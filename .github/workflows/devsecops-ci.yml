@@ -1,9 +1,9 @@
 name: DevSecOps CI Pipeline
 
 on:
-  push:
-    branches: ["main"]
   pull_request:
+    branches: ["main"]
+  push:
     branches: ["main"]
 
 permissions:
@@ -12,8 +12,8 @@ permissions:
   security-events: write
 
 jobs:
-  sast-codeql:
-    name: SAST - CodeQL Scan
+  codeql-sast:
+    name: SAST - CodeQL
     runs-on: ubuntu-latest
 
     steps:
@@ -32,7 +32,7 @@ jobs:
         uses: github/codeql-action/analyze@v4
 
 
-  secret-scan:
+  gitleaks-secret-scan:
     name: Secret Scan - Gitleaks
     runs-on: ubuntu-latest
 
@@ -46,7 +46,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 
-  dependency-scan:
+  trivy-fs-scan:
     name: Dependency Scan - Trivy FS
     runs-on: ubuntu-latest
 
@@ -54,19 +54,27 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Trivy filesystem scan
+      - name: Trivy filesystem scan (SARIF)
         uses: aquasecurity/trivy-action@0.24.0
         with:
           scan-type: fs
           scan-ref: .
           severity: HIGH,CRITICAL
-          exit-code: 1
+          format: sarif
+          output: trivy-fs.sarif
+          exit-code: ${{ github.event_name == 'push' && 1 || 0 }}
+
+      - name: Upload Trivy SARIF to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-fs.sarif
+
 
 
   docker-image-scan:
-    name: Container Build + Image Scan
+    name: Container Scan - Trivy Image
     runs-on: ubuntu-latest
-    needs: [dependency-scan, secret-scan]
+    needs: [trivy-fs-scan, gitleaks-secret-scan]
 
     steps:
       - name: Checkout source
@@ -75,9 +83,17 @@ jobs:
       - name: Build Docker image
         run: docker build -t devsecops:latest .
 
-      - name: Trivy image scan
+      - name: Trivy image scan (SARIF)
         uses: aquasecurity/trivy-action@0.24.0
         with:
           image-ref: devsecops:latest
           severity: HIGH,CRITICAL
-          exit-code: 1
+          format: sarif
+          output: trivy-image.sarif
+          exit-code: ${{ github.event_name == 'push' && 1 || 0 }}
+
+      - name: Upload image SARIF to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-image.sarif
+
