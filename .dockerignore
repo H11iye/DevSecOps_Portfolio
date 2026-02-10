@@ -1,0 +1,58 @@
+# ======================
+# Git
+# ======================
+.git
+.gitignore
+
+# ======================
+# Node modules
+# ======================
+node_modules
+**/node_modules
+.pnpm-store
+**/.pnpm-store
+
+# ======================
+# Logs
+# ======================
+*.log
+logs
+
+# ======================
+# Build output
+# ======================
+dist
+build
+out
+**/dist
+**/build
+**/out
+
+# ======================
+# Cache
+# ======================
+.cache
+**/.cache
+.vite
+**/.vite
+.tmp
+temp
+
+# ======================
+# Environment files
+# ======================
+.env
+.env.*
+!.env.example
+
+# ======================
+# Editor configs
+# ======================
+.vscode
+.idea
+
+# ======================
+# OS junk
+# ======================
+.DS_Store
+Thumbs.db
