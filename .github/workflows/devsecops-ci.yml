@@ -66,8 +66,6 @@ jobs:
           output: trivy-fs.sarif
           # exit-code: ${{ github.event_name == 'push' && '1' || '0' }}
           exit-code: 0
-          env:
-            TRIVY_CACHE_DIR: /tmp/trivy-cache
 
       - name: Upload Trivy SARIF to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
@@ -97,8 +95,6 @@ jobs:
           output: trivy-image.sarif
           # exit-code: ${{ github.event_name == 'push' && '1' || '0' }}
           exit-code: 0
-          env:
-            TRIVY_CACHE_DIR: /tmp/trivy-cache
 
 
       - name: Upload image SARIF to GitHub Security
