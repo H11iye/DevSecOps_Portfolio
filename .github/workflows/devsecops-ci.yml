@@ -49,123 +49,97 @@ jobs:
 
 
   trivy-fs-scan:
-    name: Dependency Scan - Trivy FS
-    runs-on: ubuntu-latest
+  name: Dependency Scan - Trivy FS
+  runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
+  steps:
+    - name: Checkout source
+      uses: actions/checkout@v4
 
-      - name: Install Trivy
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y wget
-          wget https://github.com/aquasecurity/trivy/releases/latest/download/trivy_0.50.0_Linux-64bit.deb
-          sudo dpkg -i trivy_0.50.0_Linux-64bit.deb
+    - name: Trivy FS (SARIF)
+      uses: aquasecurity/trivy-action@0.24.0
+      with:
+        scan-type: fs
+        scan-ref: .
+        severity: HIGH,CRITICAL
+        format: sarif
+        output: trivy-fs.sarif
+        exit-code: 0
 
-      - name: Trivy FS scan
-        run: |
-          echo "## 📦 Dependency Vulnerability Scan" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
+    - name: Upload SARIF
+      uses: github/codeql-action/upload-sarif@v4
+      with:
+        sarif_file: trivy-fs.sarif
 
-          trivy fs . \
-            --severity HIGH,CRITICAL \
-            --format table \
-            --exit-code ${{ github.event_name == 'push' && '1' || '0' }} \
-            | tee /tmp/trivy-fs.txt
+    - name: Trivy FS (JSON)
+      uses: aquasecurity/trivy-action@0.24.0
+      with:
+        scan-type: fs
+        scan-ref: .
+        severity: HIGH,CRITICAL
+        format: json
+        output: trivy-fs.json
+        exit-code: 0
 
-          cat /tmp/trivy-fs.txt >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
+    - name: Generate Markdown Summary
+      run: |
+        echo "## 📦 Dependency Vulnerabilities" >> $GITHUB_STEP_SUMMARY
+        echo "| Severity | Vulnerability | Package | Version |" >> $GITHUB_STEP_SUMMARY
+        echo "|----------|--------------|---------|----------|" >> $GITHUB_STEP_SUMMARY
 
-      - name: Trivy FS JSON
-        run: |
-          trivy fs . --severity HIGH,CRITICAL --format json -o trivy-fs.json
-      
-      - name: Generate Markdown Table
-        run: |
-          echo "## 📦 Dependency Scan Summary" >> $GITHUB_STEP_SUMMARY
-          echo "| Severity | Vulnerability | Package | Version |" >> $GITHUB_STEP_SUMMARY
-          echo "|----------|--------------|---------|----------|" >> $GITHUB_STEP_SUMMARY
-
-          jq -r '
-            .Results[].Vulnerabilities[]? |
-            "| \(.Severity) | \(.VulnerabilityID) | \(.PkgName) | \(.InstalledVersion) |"
-          ' trivy-fs.json >> $GITHUB_STEP_SUMMARY
-
-    # 1️⃣ SARIF for GitHub Security tab
-      - name: Trivy filesystem scan (SARIF)
-        uses: aquasecurity/trivy-action@0.24.0
-        with:
-          scan-type: fs
-          scan-ref: .
-          severity: HIGH,CRITICAL
-          format: sarif
-          output: trivy-fs.sarif
-          # exit-code: ${{ github.event_name == 'push' && '1' || '0' }}
-          exit-code: 0
-
-      - name: Upload Trivy SARIF to GitHub Security
-        uses: github/codeql-action/upload-sarif@v4
-        with:
-          sarif_file: trivy-fs.sarif
-
-      # 2️⃣ JSON for table rendering
-      - name: Trivy FS Scan (JSON)
-        uses: aquasecurity/trivy-action@0.24.0
-        with:
-          scan-type: fs
-          scan-ref: .
-          format: json
-          output: trivy-fs.json
-          severity: HIGH,CRITICAL
-          exit-code: 0
-
+        jq -r '
+          .Results[].Vulnerabilities[]? |
+          "| \(.Severity) | \(.VulnerabilityID) | \(.PkgName) | \(.InstalledVersion) |"
+        ' trivy-fs.json >> $GITHUB_STEP_SUMMARY
 
 
   docker-image-scan:
-    name: Container Scan - Trivy Image
-    runs-on: ubuntu-latest
-    needs: [trivy-fs-scan, gitleaks-secret-scan]
+  name: Container Scan - Trivy Image
+  runs-on: ubuntu-latest
+  needs: [trivy-fs-scan, gitleaks-secret-scan]
 
-    steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
+  steps:
+    - name: Checkout source
+      uses: actions/checkout@v4
 
-      - name: Build Docker image
-        run: docker build -t devsecops:latest .
+    - name: Build Docker image
+      run: docker build -t devsecops:latest .
 
-      - name: Trivy image scan (SARIF)
-        uses: aquasecurity/trivy-action@0.24.0
-        with:
-          image-ref: devsecops:latest
-          severity: HIGH,CRITICAL
-          format: sarif
-          output: trivy-image.sarif
-          # exit-code: ${{ github.event_name == 'push' && '1' || '0' }}
-          exit-code: 0
+    # 1️⃣ SARIF (Security tab)
+    - name: Trivy image scan (SARIF)
+      uses: aquasecurity/trivy-action@0.24.0
+      with:
+        image-ref: devsecops:latest
+        severity: HIGH,CRITICAL
+        format: sarif
+        output: trivy-image.sarif
+        exit-code: 0
 
-      - name: Upload image SARIF to GitHub Security
-        uses: github/codeql-action/upload-sarif@v4
-        with:
-          sarif_file: trivy-image.sarif
+    - name: Upload image SARIF
+      uses: github/codeql-action/upload-sarif@v4
+      with:
+        sarif_file: trivy-image.sarif
 
-      - name: Install Trivy
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y wget
-          wget https://github.com/aquasecurity/trivy/releases/latest/download/trivy_0.50.0_Linux-64bit.deb
-          sudo dpkg -i trivy_0.50.0_Linux-64bit.deb
+    # 2️⃣ JSON (for structured summary + enforcement)
+    - name: Trivy image scan (JSON)
+      uses: aquasecurity/trivy-action@0.24.0
+      with:
+        image-ref: devsecops:latest
+        severity: HIGH,CRITICAL
+        format: json
+        output: trivy-image.json
+        exit-code: ${{ github.event_name == 'push' ? 1 : 0 }}
 
-      - name: Trivy image scan (log + summary)
-        run: |
-          echo "## 🐳 Container Image Scan Results" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
+    # 3️⃣ Generate Markdown Table
+    - name: Generate Container Summary
+      run: |
+        echo "## 🐳 Container Vulnerability Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
 
-          trivy image devsecops:latest \
-            --severity HIGH,CRITICAL \
-            --format table \
-            --exit-code 0 | tee /tmp/trivy-table.txt
+        echo "| Severity | Vulnerability | Package | Installed | Fixed |" >> $GITHUB_STEP_SUMMARY
+        echo "|----------|--------------|---------|------------|-------|" >> $GITHUB_STEP_SUMMARY
 
-          cat /tmp/trivy-table.txt >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-
+        jq -r '
+          .Results[].Vulnerabilities[]? |
+          "| \(.Severity) | \(.VulnerabilityID) | \(.PkgName) | \(.InstalledVersion) | \(.FixedVersion // "N/A") |"
+        ' trivy-image.json >> $GITHUB_STEP_SUMMARY
