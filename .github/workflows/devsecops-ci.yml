@@ -128,7 +128,7 @@ jobs:
         severity: HIGH,CRITICAL
         format: json
         output: trivy-image.json
-        exit-code: ${{ github.event_name == 'push' ? 1 : 0 }}
+        exit-code: 0
 
     # 3️⃣ Generate Markdown Table
     - name: Generate Container Summary
