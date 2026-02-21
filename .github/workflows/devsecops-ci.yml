@@ -56,6 +56,16 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Prints trivy table output
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: HIGH,CRITICAL
+          format: table
+          # exit-code: ${{ github.event_name == 'push' && 1 || 0 }}
+          exit-code: 0
+
     # 1️⃣ SARIF for GitHub Security tab
       - name: Trivy filesystem scan (SARIF)
         uses: aquasecurity/trivy-action@0.24.0
@@ -120,16 +130,14 @@ jobs:
           # exit-code: ${{ github.event_name == 'push' && '1' || '0' }}
           exit-code: 0
 
-      - name: Generate Image Scan Table
-        run: |
-          echo "## 🐳 Container Image Vulnerabilities" >> $GITHUB_STEP_SUMMARY
-          echo "| Severity | Vulnerability | Package | Version |" >> $GITHUB_STEP_SUMMARY
-          echo "|----------|--------------|---------|----------|" >> $GITHUB_STEP_SUMMARY
-
-          jq -r '
-            .Results[].Vulnerabilities[]? |
-            "| \(.Severity) | \(.VulnerabilityID) | \(.PkgName) | \(.InstalledVersion) |"
-          ' trivy-image.json >> $GITHUB_STEP_SUMMARY
+      - name: Prints trivy table output
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          image-ref: devsecops:latest
+          severity: HIGH,CRITICAL
+          format: table
+          # exit-code: ${{ github.event_name == 'push' && 1 || 0 }}
+          exit-code: 0
 
       - name: Upload image SARIF to GitHub Security
         uses: github/codeql-action/upload-sarif@v4
