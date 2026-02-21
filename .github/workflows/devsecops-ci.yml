@@ -84,12 +84,14 @@ jobs:
       - name: Generate Markdown Summary
         run: |
           echo "## 📦 Dependency Vulnerabilities" >> $GITHUB_STEP_SUMMARY
-          echo "| Severity | Vulnerability | Package | Version |" >> $GITHUB_STEP_SUMMARY
-          echo "|----------|--------------|---------|----------|" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "| Severity | Vulnerability | Package | Installed | Fixed |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|--------------|---------|------------|-------|" >> $GITHUB_STEP_SUMMARY
 
           jq -r '
             .Results[].Vulnerabilities[]? |
-            "| \(.Severity) | \(.VulnerabilityID) | \(.PkgName) | \(.InstalledVersion) |"
+            "| \(.Severity) | \(.VulnerabilityID) | \(.PkgName) | \(.InstalledVersion // "N/A") | \(.FixedVersion // "N/A") |"
           ' trivy-fs.json >> $GITHUB_STEP_SUMMARY
 
 
