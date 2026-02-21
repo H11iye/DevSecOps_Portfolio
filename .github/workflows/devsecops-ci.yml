@@ -56,6 +56,7 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
+    # 1️⃣ SARIF for GitHub Security tab
       - name: Trivy filesystem scan (SARIF)
         uses: aquasecurity/trivy-action@0.24.0
         with:
@@ -71,6 +72,29 @@ jobs:
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-fs.sarif
+
+      # 2️⃣ JSON for table rendering
+      - name: Trivy FS Scan (JSON)
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: json
+          output: trivy-fs.json
+          severity: HIGH,CRITICAL
+          exit-code: 0
+
+      # 3️⃣ Generate Markdown table
+      - name: Generate Table Summary
+        run: |
+          echo "## 🔎 Filesystem Vulnerability Summary" >> $GITHUB_STEP_SUMMARY
+          echo "| Severity | Vulnerability | Package | Version |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|--------------|---------|----------|" >> $GITHUB_STEP_SUMMARY
+
+          jq -r '
+            .Results[].Vulnerabilities[]? |
+            "| \(.Severity) | \(.VulnerabilityID) | \(.PkgName) | \(.InstalledVersion) |"
+          ' trivy-fs.json >> $GITHUB_STEP_SUMMARY
 
 
 
@@ -96,6 +120,16 @@ jobs:
           # exit-code: ${{ github.event_name == 'push' && '1' || '0' }}
           exit-code: 0
 
+      - name: Generate Image Scan Table
+        run: |
+          echo "## 🐳 Container Image Vulnerabilities" >> $GITHUB_STEP_SUMMARY
+          echo "| Severity | Vulnerability | Package | Version |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|--------------|---------|----------|" >> $GITHUB_STEP_SUMMARY
+
+          jq -r '
+            .Results[].Vulnerabilities[]? |
+            "| \(.Severity) | \(.VulnerabilityID) | \(.PkgName) | \(.InstalledVersion) |"
+          ' trivy-image.json >> $GITHUB_STEP_SUMMARY
 
       - name: Upload image SARIF to GitHub Security
         uses: github/codeql-action/upload-sarif@v4
